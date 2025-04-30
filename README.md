@@ -302,3 +302,26 @@ SA_fit_wt = michaelis_menten(S_fit, Vmax_wt, Km_wt)
 
 # Plot Michaelis-Menten curves
 ```
+
+Generated plots:
+![](./michaelis_menten_combined.png)
+![](./michaelis_menten_wt.png)
+![](./michaelis_menten_s227d.png)
+![](./vmax_comparison.png)
+
+---
+## Discussion
+Methodology:
+- Michaelis-Menten curves showed optimized goodness of fit
+- Computed best linear regions aligned to a high degree with with manually selected regions; often providing better R2 values
+
+Biological conclusions:
+- Phosphomimetic substitution at serine 227 (S227D) leads to a dramatic reduction (85-fold) in MDH2 activity with its primary substrate, oxaloacetate, suggesting that phosphorylation at this site may act as a potent negative regulatory mechanism.
+---
+## References
+- Cho, Y.-S., and H.-S. Lim. 2018. Comparison of various estimation methods for the parameters of Michaelis-Menten equation based on in vitro elimination kinetic simulation data. Translational and Clinical Pharmacology 26:39–47.
+- Michaelis-Menten Kinetics. 2013, October 2. . https://chem.libretexts.org/Bookshelves/Biological_Chemistry/Supplemental_Modules_(Biological_Chemistry)/Enzymes/Enzymatic_Kinetics/Michaelis-Menten_Kinetics.
+- NumPy user guide — NumPy v2.2 Manual. (n.d.). . https://numpy.org/doc/stable/user/index.html.
+- SciPy User Guide — SciPy v1.15.2 Manual. (n.d.). . https://docs.scipy.org/doc/scipy/tutorial/index.html.
+- Using Matplotlib — Matplotlib 3.10.1 documentation. (n.d.). . https://matplotlib.org/stable/users/index.
+
