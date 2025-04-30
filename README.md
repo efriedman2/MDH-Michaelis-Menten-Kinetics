@@ -36,7 +36,7 @@ This pipeline consists of two primary Python programs:
 ---
 
 ### `michaelis_menten_kinetics.py` 
-[View michaelis_menten_kinetics.py](./michaelis_menten_kinetics.py)
+[View michaelis_menten_kinetics.py](./wt500_michaelis_menten_kinetics.py)
 
 #### Step 1. Loading and formatting data
 
