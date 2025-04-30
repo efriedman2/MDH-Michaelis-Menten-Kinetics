@@ -51,3 +51,71 @@ This pipeline consists of two primary Python programs:
 # Read excel files into dictionaries
 dict_s227d = pd.read_excel(xls_s227d, sheet_name = xls_s227d.sheet_names[0:7])
 dict_wt = pd.read_excel(xls_wt, sheet_name = xls_wt.sheet_names[0:7])
+```
+
+- Retain only time and absorbance data for the 3 replicates
+- Rename columns to make downstream coding easier
+
+```python
+for sheet_name, df in dict_s227d.items():
+    df = df.iloc[:, 1:5]  # Keep only columns 2 to 5
+    df.columns = ["Time", "s227d_R1", "s227d_R2", "s227d_R3"]  # Rename columns
+    dict_s227d[sheet_name] = df  # Update the dictionary
+
+for sheet_name, df in dict_wt.items():
+    df = df.iloc[:, 1:5]
+    df.columns = ["Time", "wt_R1", "wt_R2", "wt_R3"]
+    dict_wt[sheet_name] = df
+```
+---
+#### Step 2. Calculate Derivatives
+`def process_sheets(xls, sample_prefix):`
+This function:
+1.	Loops over each sheet in each Excel file.
+2.	Calculates for each replicate:
+- First derivative (dA/dt): Represents reaction rate over time.
+- Second derivative (d²A/dt²): Measures curvature → helps find regions that are linear.
+
+`np.gradient` numerically estimates derivatives using finite differences.
+
+```python
+# Function to compute derivatives
+	# second derivative will be used to help find best linear region
+def process_sheets(xls, sample_prefix):
+    dict_data = pd.read_excel(xls, sheet_name=None)  # Read all sheets
+    processed_dict = {}
+
+    for sheet_name, df in dict_data.items():
+        df = df.iloc[:, 1:5]  # Keep only relevant columns
+        df.columns = ["Time", f"{sample_prefix}_R1", f"{sample_prefix}_R2", f"{sample_prefix}_R3"]
+
+        # first derivative
+        df[f"dA_dt_R1"] = np.gradient(df[f"{sample_prefix}_R1"], df["Time"])
+        df[f"dA_dt_R2"] = np.gradient(df[f"{sample_prefix}_R2"], df["Time"])
+        df[f"dA_dt_R3"] = np.gradient(df[f"{sample_prefix}_R3"], df["Time"])
+
+        # second derivative
+        df[f"d2A_dt2_R1"] = np.gradient(df[f"dA_dt_R1"], df["Time"])
+        df[f"d2A_dt2_R2"] = np.gradient(df[f"dA_dt_R2"], df["Time"])
+        df[f"d2A_dt2_R3"] = np.gradient(df[f"dA_dt_R3"], df["Time"])
+
+        processed_dict[sheet_name] = df  # Store processed dataframe
+
+    return processed_dict
+
+# Processed data with derivatives
+dict_s227d_processed = process_sheets(xls_s227d, "s227d")
+dict_wt_processed = process_sheets(xls_wt, "wt")
+```
+---
+#### Step 3. Define constants for specific activity calculations
+- Used to calculate concentration from absorbance (Beer's law) and normalize for enzyme amounts in assay
+
+```python
+# Constants to be used in specific activity calculations
+NADH_concentration = 0.0322  # concentration in umol of the absorbing species (c) from Beer's law
+
+# mg of enzyme in 20ul
+enzyme_amount_s227d = 0.0086666675  
+enzyme_amount_wt = 0.00001592258262  # 1:500 dilution
+```
