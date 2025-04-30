@@ -119,3 +119,134 @@ NADH_concentration = 0.0322  # concentration in umol of the absorbing species (c
 enzyme_amount_s227d = 0.0086666675  
 enzyme_amount_wt = 0.00001592258262  # 1:500 dilution
 ```
+#### Step 4. Function to find best linear region
+```python
+def find_best_linear_region(df, rate_col, second_deriv_col, time_col="Time", window_size=5):
+```
+- df: DataFrame with absorbance and derivative data.
+- rate_col: Column of absorbance values for a replicate.
+- second_deriv_col: Column with second derivative (used to identify flat regions).
+- time_col: Time column (default is "Time").
+- window_size: Number of consecutive points to include in linear regression (must be ≥ 5).
+
+```python
+threshold = np.percentile(np.abs(df[second_deriv_col]), 20)
+```
+- Sets a dynamic threshold using the 20th percentile of the absolute second derivative.
+- Identifies regions with low curvature, which are likely to be linear.
+
+```python
+linear_region_mask = np.abs(df[second_deriv_col]) < threshold
+linear_indices = np.where(linear_region_mask)[0]
+```
+- Applies the threshold to identify all low-curvature index positions in the dataset
+
+```python
+if len(linear_indices) < window_size: 
+    print(f"Warning: Not enough low-curvature points for {rate_col}.")
+    return None, None, None, None
+```
+- Checks that enough points are available to perform a good regression.
+
+```python
+best_slope, best_r2, best_start_idx, best_end_idx = None, 0, None, None
+```
+- Initializes tracking variables for the best fit region found so far.
+- Based on negative slope and highest R2 value
+
+```python
+for start_idx in range(len(linear_indices) - window_size):
+```
+- Slide a window of size `window_size` across `linear_indices`.
+
+```python
+    end_idx = start_idx + window_size
+    time_linear = df[time_col].iloc[linear_indices[start_idx:end_idx]]
+    absorbance_linear = df[rate_col].iloc[linear_indices[start_idx:end_idx]]
+```
+- Define the window range and extract time and absorbance values just within that window.
+
+```python
+    slope, intercept, r_value, p_value, std_err = linregress(time_linear, absorbance_linear)
+```
+- Perform linear regression over the window.
+Returns:
+- slope: the velocity (V₀) estimate
+- r_value**2: coefficient of determination (R²) for goodness of fit
+
+```python
+  if slope < 0 and r_value**2 > best_r2:
+        best_slope, best_r2 = slope, r_value**2
+        best_start_idx, best_end_idx = linear_indices[start_idx], linear_indices[end_idx - 1]
+```
+- Only fits with negative slope and better R2 than previous fits are accepted.
+- If both conditions met store as current best fit
+
+```python
+if best_slope is not None:
+    return abs(best_slope), best_start_idx, best_end_idx, best_r2
+```
+- If a valid best slope was found, return: best slope (V0), region of time chosen, and R2
+---
+#### Step 4. Calculate specific activity from best linear region
+```python
+# Dictionaries to store the average specific activity for each substrate concentration
+averaged_specific_activity_s227d = {}
+averaged_specific_activity_wt = {}
+
+# Loop through each enzyme (S227D and WT)
+for enzyme_dict, enzyme_name, enzyme_amount, averaged_specific_activity in zip(
+    [dict_s227d_processed, dict_wt_processed], 
+    ["S227D", "WT"], 
+    [enzyme_amount_s227d, enzyme_amount_wt], 
+    [averaged_specific_activity_s227d, averaged_specific_activity_wt]
+):
+    for sheet_name, df in enzyme_dict.items():
+        substrate_concentration = sheet_name
+        specific_activities = []
+        
+        # Loop through each replicate (R1, R2, R3)
+        for replicate in [f"{enzyme_name.lower()}_R1", f"{enzyme_name.lower()}_R2", f"{enzyme_name.lower()}_R3"]:
+            
+            # Step 1: Find the best linear region for V₀ determination
+            best_slope, best_start_idx, best_end_idx, min_second_derivative = find_best_linear_region(
+                df,
+                replicate,  # First derivative column (e.g., "s227d_R1", "wt_R1", etc.)
+                f"d2A_dt2_{replicate[-2:]}"  # Second derivative column (e.g., "d2A_dt2_R1", "d2A_dt2_R2", etc.)
+            )
+            
+            # Step 2: Calculate V₀ in abs/sec (slope from linear region)
+            if best_slope is not None:
+                V0 = abs(best_slope)  # The magnitude of the slope gives the initial velocity (abs/sec)
+                print(f"V₀ for {replicate} in {sheet_name}: {V0:.6f} abs/sec")
+                print(f"Linear region: Time from {df['Time'].iloc[best_start_idx]} to {df['Time'].iloc[best_end_idx]} (seconds)")
+                
+                # Step 3: Convert V₀ to specific activity (µmol NADH/min/mg)
+                enzyme_units = ((V0 * 60) * NADH_concentration) # convert abs/sec to abs/min before multiplying by c
+                specific_activity = (enzyme_units / enzyme_amount)
+                
+                print(f"Specific Activity for {replicate} in {sheet_name}: {specific_activity:.4f} µmol NADH/min/mg")
+                
+                # Step 4: Store specific activity for averaging
+                specific_activities.append(specific_activity)
+            else:
+                print(f"No valid linear region found for {replicate} in {sheet_name}")
+        
+        # Step 5: Calculate and store the average specific activity for substrate concentration
+        if specific_activities:
+            averaged_specific_activity[substrate_concentration] = np.mean(specific_activities)
+        else:
+            averaged_specific_activity[substrate_concentration] = None
+
+# DataFrame for averaged specific activities
+df_s227d = pd.DataFrame(list(averaged_specific_activity_s227d.items()), columns=["Substrate Concentration", "Average Specific Activity (S227D)"])
+df_wt = pd.DataFrame(list(averaged_specific_activity_wt.items()), columns=["Substrate Concentration", "Average Specific Activity (WT)"])
+
+# Merge the S227D and WT DataFrames on the "Substrate Concentration" column
+df_combined = pd.merge(df_s227d, df_wt, on="Substrate Concentration", how="outer")
+
+# Save DataFrame as CSV
+df_combined.to_csv("averaged_specific_activity_wt500.csv", index=False)
+
+print("Averaged Specific Activities saved successfully!")
+```
