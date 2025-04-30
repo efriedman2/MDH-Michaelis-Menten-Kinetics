@@ -316,9 +316,12 @@ Methodology:
 - Computed best linear regions aligned to a high degree with with manually selected regions; often providing better R2 values
 - Does not work as well on curves that exhibit exponential decay (but ideal data should not have this shape)
 - Accurate for all replicate assays except the highest OAA points due to noisy data
+- Second derivative likely unecessary. Optimizing goodness of fit appears sufficient on its own
+- Should add Kcat and Kcat/Km calculations to fit_michaelis_menten.py script in the future
 
 Biological conclusions:
 - Phosphomimetic substitution at serine 227 (S227D) leads to a dramatic reduction (85-fold) in MDH2 activity with its primary substrate, oxaloacetate, suggesting that phosphorylation at this site may act as a potent negative regulatory mechanism.
+![](./kinetic_params.png)
 ---
 ## References
 - Cho, Y.-S., and H.-S. Lim. 2018. Comparison of various estimation methods for the parameters of Michaelis-Menten equation based on in vitro elimination kinetic simulation data. Translational and Clinical Pharmacology 26:39–47.
