@@ -250,3 +250,55 @@ df_combined.to_csv("averaged_specific_activity_wt500.csv", index=False)
 
 print("Averaged Specific Activities saved successfully!")
 ```
+### `fit_michaelis_menten.py` 
+[View fit_michaelis_menten.py](./fit_michaelis_menten.py)
+```python
+# Load excel file with average specific activity
+df = pd.read_excel(f"{file_dir}avg_specific_activity_ex0.3.xlsx")
+
+# Extract data
+OAA_conc = df.iloc[:, 0].values  # Already in µM
+specific_activity_s227d = df.iloc[:, 1].values
+specific_activity_wt = df.iloc[:, 2].values
+
+# Michaelis-Menten equation
+def michaelis_menten(S, Vmax, Km):
+    return (Vmax * S) / (Km + S)
+
+# Fit model to data and get standard errors
+def fit_michaelis_menten(S, v):
+    popt, pcov = curve_fit(michaelis_menten, S, v, p0=[max(v), np.median(S)])
+    perr = np.sqrt(np.diag(pcov))  # Standard errors
+    return popt, perr
+
+# Fit S227D
+(popt_s227d, perr_s227d) = fit_michaelis_menten(OAA_conc, specific_activity_s227d)
+Vmax_s227d, Km_s227d = popt_s227d
+SE_Vmax_s227d, SE_Km_s227d = perr_s227d
+
+# Fit WT
+(popt_wt, perr_wt) = fit_michaelis_menten(OAA_conc, specific_activity_wt)
+Vmax_wt, Km_wt = popt_wt
+SE_Vmax_wt, SE_Km_wt = perr_wt
+
+# Compute R² values
+def calculate_r_squared(S, v, Vmax, Km):
+    residuals = v - michaelis_menten(S, Vmax, Km)
+    ss_res = np.sum(residuals**2)
+    ss_tot = np.sum((v - np.mean(v))**2)
+    return 1 - (ss_res / ss_tot)
+
+R2_s227d = calculate_r_squared(OAA_conc, specific_activity_s227d, Vmax_s227d, Km_s227d)
+R2_wt = calculate_r_squared(OAA_conc, specific_activity_wt, Vmax_wt, Km_wt)
+
+# Print fitted equations
+print(f"S227D: v = ({Vmax_s227d:.2f} * [S]) / ({Km_s227d:.2f} + [S])")
+print(f"WT: v = ({Vmax_wt:.2f} * [S]) / ({Km_wt:.2f} + [S])")
+
+# Generate smooth curve for plots
+S_fit = np.linspace(min(OAA_conc), max(OAA_conc), 100)
+SA_fit_s227d = michaelis_menten(S_fit, Vmax_s227d, Km_s227d)
+SA_fit_wt = michaelis_menten(S_fit, Vmax_wt, Km_wt)
+
+# Plot Michaelis-Menten curves
+```
